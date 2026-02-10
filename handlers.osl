@@ -55,13 +55,21 @@ def handleAuth(*Connection conn, object msg) (
 )
 
 def handleChannelsGet(*Connection conn, object msg) (
-    string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
+        conn.Send({
+            cmd: "error",
+            val: "Authentication required"
+        })
         return
     )
     if !checkReadRequestLimit(conn) (
+        conn.Send({
+            cmd: "error",
+            val: "Rate limit exceeded. Please slow down."
+        })
         return
     )
+    string username = getUsername(conn)
     object user = getUser(username)
 
     array formattedChannels = formatSortedChannelsForAPI(user)
@@ -120,7 +128,7 @@ def populateUserRoles(array channels, string excludeUsername, array includeUsern
 
 def handleUsersList(*Connection conn, object msg) (
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
         return
     )
     if !checkReadRequestLimit(conn) (
@@ -147,7 +155,7 @@ def handleUsersList(*Connection conn, object msg) (
 
 def handleUsersOnline(*Connection conn, object msg) (
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
         return
     )
     if !checkReadRequestLimit(conn) (
@@ -190,10 +198,18 @@ def handleUsersOnline(*Connection conn, object msg) (
 
 def handleMessagesGet(*Connection conn, object msg) (
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
+        conn.Send({
+            cmd: "error",
+            val: "Authentication required"
+        })
         return
     )
     if !checkReadRequestLimit(conn) (
+        conn.Send({
+            cmd: "error",
+            val: "Rate limit exceeded. Please slow down."
+        })
         return
     )
     string channel = msg.channel.toStr()
@@ -257,7 +273,7 @@ def handleMessagesGet(*Connection conn, object msg) (
 
 def handleDMAddCommand(*Connection conn, string targetUsername) (
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
         return
     )
     if !checkRateLimit(conn) (
@@ -292,7 +308,7 @@ def handleDMAddCommand(*Connection conn, string targetUsername) (
 
 def handleGroupCreateCommand(*Connection conn, array parts) (
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
         return
     )
     if !checkRateLimit(conn) (
@@ -367,7 +383,7 @@ def handleGroupCreateCommand(*Connection conn, array parts) (
 
 def handleGroupAddCommand(*Connection conn, array parts) (
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
         return
     )
     if !checkRateLimit(conn) (
@@ -488,7 +504,7 @@ def handleMessageNew(*Connection conn, object msg) (
     )
 
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
         return
     )
     if !checkRateLimit(conn) (
@@ -555,7 +571,7 @@ def handleMessageNew(*Connection conn, object msg) (
 
 def handleDMCreate(*Connection conn, object msg) (
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
         return
     )
     if !checkRateLimit(conn) (
@@ -626,7 +642,7 @@ def sendUpdatedChannelsToChannelMembers(string channel) (
 def handleTyping(*Connection conn, object msg) (
     string channel = msg.channel.toStr()
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
         return
     )
     if !checkRateLimit(conn) (
@@ -648,7 +664,7 @@ def handleMessageEdit(*Connection conn, object msg) (
     string messageId = msg.messageId.toStr()
     string newContent = msg.content.toStr()
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
         return
     )
     if !checkRateLimit(conn) (
@@ -697,7 +713,7 @@ def handleMessageDelete(*Connection conn, object msg) (
     string channel = msg.channel.toStr()
     string messageId = msg.messageId.toStr()
     string username = getUsername(conn)
-    if !requireAuth(conn, username) (
+    if !requireAuth(conn) (
         return
     )
     if !checkRateLimit(conn) (
@@ -755,7 +771,7 @@ def isAuthenticated(*Connection conn) boolean (
     return conn.Get("username") != ""
 )
 
-def requireAuth(*Connection conn, string username) bool (
+def requireAuth(*Connection conn) bool (
     if !isAuthenticated(conn) (
         conn.Send(authErrorMsg("Authentication required"))
         return false

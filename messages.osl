@@ -141,8 +141,8 @@ def formatSortedChannelsForAPI(object user) array (
     )
 
     while channelData.len > 0 (
-        int highestIndex = 0
-        int highestTimestamp = 0
+        int highestIndex = -1
+        int highestTimestamp = -1
         for i channelData.len (
             auto data = channelData[i]
             if typeof(data) == "object" (
@@ -154,15 +154,24 @@ def formatSortedChannelsForAPI(object user) array (
                 )
             )
         )
+        
+        if highestIndex == -1 (
+            break
+        )
+        
         auto bestData = channelData[highestIndex]
         if typeof(bestData) == "object" (
             object bestDataObj = bestData.assert(object)
             formattedChannels.append(formatChannelForAPI(bestDataObj.channel.assert(object), user))
         )
+        
         array newChannelData = []
         for i channelData.len (
             if i != highestIndex (
-                newChannelData.append(channelData[i])
+                auto item = channelData[i]
+                if typeof(item) == "object" (
+                    newChannelData.append(item)
+                )
             )
         )
         channelData = newChannelData
@@ -170,7 +179,6 @@ def formatSortedChannelsForAPI(object user) array (
 
     return formattedChannels
 )
-
 def formatMessageForAPI(object message) object (
     object result = {
         id: message.id.toStr(),
