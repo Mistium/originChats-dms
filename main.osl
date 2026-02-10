@@ -45,7 +45,6 @@ def handleMessage(*Connection conn, string message) (
     object msg = rawMsg.assert(object)
 
     string cmd = msg.cmd.toStr()
-    log cmd ++ " from " ++ getUsername(conn)
     switch cmd (
         case "auth"
             handleAuth(conn, msg)
@@ -71,8 +70,21 @@ def handleMessage(*Connection conn, string message) (
 )
 
 def closeConnection(*Connection conn) (
-    log "Connection closed"
+    string username = getUsername(conn)
+    log "Connection closed for " ++ username
     users.delete(conn)
+    if username != "" (
+        broadcastUserDisconnect(username)
+    )
+)
+
+def startPingTimer() (
+    while true (
+        wait 60
+        server.Broadcast({
+            cmd: "ping"
+        }.JsonStringify())
+    )
 )
 
 def main() (
@@ -82,5 +94,6 @@ def main() (
     server.OnMessage(handleMessage)
     server.OnDisconnect(closeConnection)
 
+    go startPingTimer()
     server.Start()
 )

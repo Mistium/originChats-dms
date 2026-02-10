@@ -42,6 +42,8 @@ def handleAuth(*Connection conn, object msg) (
             roles: ["user"] ++ user.channels.assert(array)
         }
     })
+
+    broadcastUserConnect(username, user.channels.assert(array))
 )
 
 def handleChannelsGet(*Connection conn, object msg) (
@@ -791,6 +793,9 @@ def checkRateLimitWithParams(*Connection conn, int maxRequests, int window) bool
 )
 
 def verifyChannelMember(*Connection conn, string username, string channelId) bool (
+    if channelId == "cmds" (
+        return true
+    )
     object user = getUser(username)
     if typeof(user.channels) != "array" (
         return false
@@ -804,4 +809,77 @@ def verifyChannelMember(*Connection conn, string username, string channelId) boo
         return false
     )
     return true
+)
+
+def broadcastUserConnect(string username, array channels) (
+    object connectMsg = {
+        cmd: "user_connect",
+        user: {
+            username: username,
+            roles: ["user"] ++ channels,
+            color: null
+        }
+    }
+    auto connections = server.GetConnections()
+    for i connections.len (
+        auto memberConn = connections[i].assert(*Connection)
+        auto connUsername = memberConn.Get("username")
+        if connUsername != null and connUsername.toStr() != "" (
+            string memberName = connUsername.toStr()
+            if memberName == username (
+                continue
+            )
+            object memberUser = getUser(memberName)
+            if typeof(memberUser.channels) == "array" (
+                array memberChannels = memberUser.channels
+                bool sharesChannel = false
+                for j memberChannels.len (
+                    if channels.contains(memberChannels[j].toStr()) (
+                        sharesChannel = true
+                        break
+                    )
+                )
+                if sharesChannel (
+                    memberConn.Send(connectMsg)
+                )
+            )
+        )
+    )
+)
+
+def broadcastUserDisconnect(string username) (
+    object disconnectMsg = {
+        cmd: "user_disconnect",
+        username: username
+    }
+    object user = getUser(username)
+    array channels = []
+    if typeof(user.channels) == "array" (
+        channels = user.channels
+    )
+    auto connections = server.GetConnections()
+    for i connections.len (
+        auto memberConn = connections[i].assert(*Connection)
+        auto connUsername = memberConn.Get("username")
+        if connUsername != null and connUsername.toStr() != "" (
+            string memberName = connUsername.toStr()
+            if memberName == username (
+                continue
+            )
+            object memberUser = getUser(memberName)
+            if typeof(memberUser.channels) == "array" (
+                array memberChannels = memberUser.channels.assert(array)
+                bool sharesChannel = false
+                for j memberChannels.len (
+                    if channels.contains(memberChannels[j].toStr()) (
+                        sharesChannel = true
+                        break
+                    )
+                )
+                if sharesChannel (
+                    memberConn.Send(disconnectMsg)
+                )
+            )
+        )
+    )
 )
