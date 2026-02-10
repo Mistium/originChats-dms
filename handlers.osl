@@ -296,14 +296,14 @@ def handleDMAddCommand(*Connection conn, string targetUsername) (
         return
     )
 
-    createDMChannel(username, targetUsername)
+    string channelId = createDMChannel(username, targetUsername)
     
     conn.Send({
         cmd: "info",
         val: "Added DM channel with " ++ targetUsername
     })
 
-    handleChannelsGet(conn, {})
+    sendUpdatedChannelsToChannelMembers(channelId)
 )
 
 def handleGroupCreateCommand(*Connection conn, array parts) (
@@ -366,7 +366,7 @@ def handleGroupCreateCommand(*Connection conn, array parts) (
         return
     )
 
-    createGroupChannel(username, name, members)
+    string channelId = createGroupChannel(username, name, members)
     
     string successMsg = "Created group '" ++ name ++ "'"
     if members.len > 0 (
@@ -378,7 +378,7 @@ def handleGroupCreateCommand(*Connection conn, array parts) (
         val: successMsg
     })
 
-    handleChannelsGet(conn, {})
+    sendUpdatedChannelsToChannelMembers(channelId)
 )
 
 def handleGroupAddCommand(*Connection conn, array parts) (
@@ -596,9 +596,9 @@ def handleDMCreate(*Connection conn, object msg) (
         return
     )
 
-    createDMChannel(username, targetUsername)
+    string channelId = createDMChannel(username, targetUsername)
 
-    handleChannelsGet(conn, {})
+    sendUpdatedChannelsToChannelMembers(channelId)
 )
 
 def sendMessageToAllUsersInChannel(*Connection conn, string channel, object message) (
@@ -608,7 +608,11 @@ def sendMessageToAllUsersInChannel(*Connection conn, string channel, object mess
         auto connections = server.GetConnections()
         for i connections.len (
             auto memberConn = connections[i].assert(*Connection)
-            if !members.contains(memberConn.Get("username").toStr().toLower()) (
+            auto connUsername = memberConn.Get("username")
+            if connUsername == null or connUsername.toStr() == "" (
+                continue
+            )
+            if !members.contains(connUsername.toStr().toLower()) (
                 continue
             )
             memberConn.Send(message)
@@ -625,7 +629,11 @@ def sendUpdatedChannelsToChannelMembers(string channel) (
             auto memberConn = connections[i]
             if typeof(memberConn) == "*Connection" (
                 auto conn = memberConn.assert(*Connection)
-                string username = conn.Get("username").toStr().toLower()
+                auto connUsername = conn.Get("username")
+                if connUsername == null or connUsername.toStr() == "" (
+                    continue
+                )
+                string username = connUsername.toStr().toLower()
                 if members.contains(username) and userExists(username) (
                     object user = getUser(username)
                     array formattedChannels = formatSortedChannelsForAPI(user)
@@ -842,30 +850,34 @@ def broadcastUserConnect(string username, array channels) (
     for i connections.len (
         auto memberConn = connections[i].assert(*Connection)
         auto connUsername = memberConn.Get("username")
-        if connUsername != null and connUsername.toStr() != "" (
-            string memberName = connUsername.toStr()
-            if memberName.toLower() == username.toLower() (
-                continue
+        if connUsername == null or connUsername.toStr() == "" (
+            continue
+        )
+        string memberName = connUsername.toStr()
+        if memberName.toLower() == username.toLower() (
+            continue
+        )
+        object memberUser = getUser(memberName)
+        if typeof(memberUser.channels) == "array" (
+            array memberChannels = memberUser.channels
+            bool sharesChannel = false
+            for j memberChannels.len (
+                if channels.contains(memberChannels[j].toStr()) (
+                    sharesChannel = true
+                    break
+                )
             )
-            object memberUser = getUser(memberName)
-            if typeof(memberUser.channels) == "array" (
-                array memberChannels = memberUser.channels
-                bool sharesChannel = false
-                for j memberChannels.len (
-                    if channels.contains(memberChannels[j].toStr()) (
-                        sharesChannel = true
-                        break
-                    )
-                )
-                if sharesChannel (
-                    memberConn.Send(connectMsg)
-                )
+            if sharesChannel (
+                memberConn.Send(connectMsg)
             )
         )
     )
 )
 
 def broadcastUserDisconnect(string username) (
+    if username == "" (
+        return
+    )
     object disconnectMsg = {
         cmd: "user_disconnect",
         username: username
@@ -879,24 +891,25 @@ def broadcastUserDisconnect(string username) (
     for i connections.len (
         auto memberConn = connections[i].assert(*Connection)
         auto connUsername = memberConn.Get("username")
-        if connUsername != null and connUsername.toStr() != "" (
-            string memberName = connUsername.toStr()
-            if memberName == username (
-                continue
+        if connUsername == null or connUsername.toStr() == "" (
+            continue
+        )
+        string memberName = connUsername.toStr()
+        if memberName == username (
+            continue
+        )
+        object memberUser = getUser(memberName)
+        if typeof(memberUser.channels) == "array" (
+            array memberChannels = memberUser.channels.assert(array)
+            bool sharesChannel = false
+            for j memberChannels.len (
+                if channels.contains(memberChannels[j].toStr()) (
+                    sharesChannel = true
+                    break
+                )
             )
-            object memberUser = getUser(memberName)
-            if typeof(memberUser.channels) == "array" (
-                array memberChannels = memberUser.channels.assert(array)
-                bool sharesChannel = false
-                for j memberChannels.len (
-                    if channels.contains(memberChannels[j].toStr()) (
-                        sharesChannel = true
-                        break
-                    )
-                )
-                if sharesChannel (
-                    memberConn.Send(disconnectMsg)
-                )
+            if sharesChannel (
+                memberConn.Send(disconnectMsg)
             )
         )
     )

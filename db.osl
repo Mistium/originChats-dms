@@ -152,7 +152,7 @@ def createDMChannel(string user1, string user2) string (
         type: "dm",
         name: channelId,
         members: [user1.toLower(), user2.toLower()],
-        created_at: timestamp
+        created_at: timestamp / 1000
     }
     saveChannel(channelId, channel)
     addChannelToUser(user1, channelId)
@@ -179,7 +179,7 @@ def createGroupChannel(string creator, string name, array members) string (
         display_name: channelId,
         members: allMembers,
         creator: creator.toLower(),
-        created_at: timestamp
+        created_at: timestamp / 1000
     }
     saveChannel(channelId, channel)
     return channelId
@@ -237,7 +237,7 @@ def sendChannelMessage(string channelId, string content, string username) object
         id: messageId,
         user: username.toLower(),
         content: content,
-        timestamp,
+        timestamp: timestamp / 1000,
         type: "message"
     }
 
@@ -282,7 +282,7 @@ def editChannelMessage(string channelId, string messageId, string newContent, st
                 )
                 message.content = newContent
                 message.edited = true
-                message.edited_at = timestamp
+                message.edited_at = timestamp / 1000
                 messages[i] = message
                 ch.messages = messages
                 saveChannel(channelId, ch)
