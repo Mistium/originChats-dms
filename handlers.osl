@@ -743,18 +743,12 @@ def getUsername(*Connection conn) string (
     return val.toStr()
 )
 
-def isAuthenticated(*Connection conn, string username) bool (
-    if username == "" (
-        return false
-    )
-    if !userExists(username) (
-        return false
-    )
-    return true
+def isAuthenticated(*Connection conn) boolean (
+    return conn.get("username") != ""
 )
 
 def requireAuth(*Connection conn, string username) bool (
-    if !isAuthenticated(conn, username) (
+    if !isAuthenticated(conn) (
         conn.Send(authErrorMsg("Authentication required"))
         return false
     )
@@ -826,7 +820,7 @@ def broadcastUserConnect(string username, array channels) (
         auto connUsername = memberConn.Get("username")
         if connUsername != null and connUsername.toStr() != "" (
             string memberName = connUsername.toStr()
-            if memberName == username (
+            if memberName.toLower() == username.toLower() (
                 continue
             )
             object memberUser = getUser(memberName)
