@@ -29,6 +29,11 @@ def handleAuth(*Connection conn, object msg) (
     conn.Set("ratelimit_timestamp", timestamp.toNum())
     conn.Set("ratelimit_count", 0)
 
+    fs.WriteFile("db/users/" ++ username.toLower() ++ ".json", {
+        username: username,
+        channels: []
+    })
+
     object user = getUser(username)
 
     conn.Send({

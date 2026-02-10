@@ -88,6 +88,10 @@ def startPingTimer() (
 )
 
 def main() (
+    fs.Mkdir("db")
+    fs.Mkdir("db/users")
+    fs.Mkdir("db/channels")
+
     server = ws.NewServer(":5618", "/")
 
     server.OnConnect(newConnection)
