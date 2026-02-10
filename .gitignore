@@ -2,3 +2,4 @@ db/
 .vscode/
 main.go
 originChats-dms
+main

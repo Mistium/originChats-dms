@@ -88,7 +88,7 @@ def startPingTimer() (
 )
 
 def main() (
-    server = ws.NewServer(":5607", "/")
+    server = ws.NewServer(":5618", "/")
 
     server.OnConnect(newConnection)
     server.OnMessage(handleMessage)
