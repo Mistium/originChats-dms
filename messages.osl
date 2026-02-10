@@ -200,5 +200,8 @@ def formatMessageForAPI(object message) object (
     if typeof(message.edited_at) != "null" (
         result.edited_at = message.edited_at
     )
+    if typeof(message.reply_to) == "object" (
+        result.reply_to = message.reply_to
+    )
     return result
 )

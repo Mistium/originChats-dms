@@ -474,6 +474,10 @@ def handleProcessCommand(*Connection conn, string content, string channel) (
 def handleMessageNew(*Connection conn, object msg) (
     string channel = msg.channel.toStr()
     string content = msg.content.toStr()
+    string replyToId = ""
+    if typeof(msg.reply_to) == "string" (
+        replyToId = msg.reply_to.toStr()
+    )
 
     if content.startsWith("/") (
         handleProcessCommand(conn, content, channel)
@@ -527,7 +531,7 @@ def handleMessageNew(*Connection conn, object msg) (
         return
     )
 
-    object message = sendChannelMessage(channel, content, id)
+    object message = sendChannelMessage(channel, content, id, replyToId)
     if message == null (
         conn.Send({
             cmd: "error",
@@ -640,9 +644,16 @@ def handleTyping(*Connection conn, object msg) (
 
 def handleMessageEdit(*Connection conn, object msg) (
     string channel = msg.channel.toStr()
-    string messageId = msg.messageId.toStr()
-    string newContent = msg.content.toStr()
     string id = getUserId(conn)
+    string newContent = msg.content.toStr()
+    string messageId = msg.id.toStr()
+    if messageId == "" (
+        conn.Send({
+            cmd: "error",
+            val: "Missing id parameter"
+        })
+        return
+    )
     if !requireAuth(conn) (
         return
     )
@@ -683,17 +694,26 @@ def handleMessageEdit(*Connection conn, object msg) (
     sendMessageToAllUsersInChannel(conn, channel, {
         cmd: "message_edit",
         id: updatedMessage.id,
-        content: updatedMessage.content,
+        content: newContent,
         message: formatMessageForAPI(updatedMessage),
         channel: channel,
         global: true
     })
+
+    sendUpdatedChannelsToChannelMembers(channel)
 )
 
 def handleMessageDelete(*Connection conn, object msg) (
     string channel = msg.channel.toStr()
-    string messageId = msg.messageId.toStr()
     string id = getUserId(conn)
+    string messageId = msg.id.toStr()
+    if messageId == "" (
+        conn.Send({
+            cmd: "error",
+            val: "Missing id parameter"
+        })
+        return
+    )
     if !requireAuth(conn) (
         return
     )
@@ -732,7 +752,7 @@ def handleMessageDelete(*Connection conn, object msg) (
 
     sendMessageToAllUsersInChannel(conn, channel, {
         cmd: "message_delete",
-        messageId: messageId,
+        id: messageId,
         channel: channel,
         global: true
     })
