@@ -63,6 +63,10 @@ def handleMessage(*Connection conn, string message) (
             handleMessageEdit(conn, msg)
         case "message_delete"
             handleMessageDelete(conn, msg)
+        case "message_react_add"
+            handleMessageReactAdd(conn, msg)
+        case "message_react_remove"
+            handleMessageReactRemove(conn, msg)
         case "dm_create"
             handleDMCreate(conn, msg)
         case "typing"

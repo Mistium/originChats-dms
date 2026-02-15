@@ -389,3 +389,183 @@ def getMessage(string channelId, string messageId) object (
     )
     return null
 )
+
+def isValidEmoji(string emoji) bool (
+    if emoji == "" (
+        return false
+    )
+    
+    int len = emoji.len
+    if len < 1 or len > 10 (
+        return false
+    )
+    
+    return true
+)
+
+def findReactionIndex(array reactions, string emoji) int (
+    for i reactions.len (
+        auto r = reactions[i]
+        if typeof(r) == "object" (
+            object reaction = r.assert(object)
+            if reaction.emoji.toStr() == emoji (
+                return i
+            )
+        )
+    )
+    return -1
+)
+
+def addReaction(string channelId, string messageId, string emoji, string userId) bool (
+    if !isValidEmoji(emoji) (
+        return false
+    )
+    
+    object ch = getChannel(channelId)
+    if ch == null (
+        return false
+    )
+    
+    if typeof(ch.messages) != "array" (
+        return false
+    )
+    
+    array messages = ch.messages.assert(array)
+    for i messages.len (
+        auto msg = messages[i]
+        if typeof(msg) == "object" (
+            object message = msg.assert(object)
+            if message.id.toStr() == messageId (
+                if typeof(message.reactions) != "array" (
+                    message.reactions = []
+                )
+                array reactions = message.reactions.assert(array)
+                
+                int index = findReactionIndex(reactions, emoji)
+                if index > 0 (
+                    object reaction = reactions[index].assert(object)
+                    array users = reaction.users.assert(array)
+                    if users.contains(userId) (
+                        return true
+                    )
+                    users.append(userId)
+                    reaction.users = users
+                    reactions[index] = reaction
+                ) else (
+                    reactions.append({
+                        emoji: emoji,
+                        users: [userId]
+                    })
+                )
+                
+                message.reactions = reactions
+                messages[i] = message
+                ch.messages = messages
+                saveChannel(channelId, ch)
+                return true
+            )
+        )
+    )
+    return false
+)
+
+def removeReaction(string channelId, string messageId, string emoji, string userId) bool (
+    if !isValidEmoji(emoji) (
+        return false
+    )
+    
+    object ch = getChannel(channelId)
+    if ch == null (
+        return false
+    )
+    
+    if typeof(ch.messages) != "array" (
+        return false
+    )
+    
+    array messages = ch.messages.assert(array)
+    for i messages.len (
+        auto msg = messages[i]
+        if typeof(msg) == "object" (
+            object message = msg.assert(object)
+            if message.id.toStr() == messageId (
+                if typeof(message.reactions) != "array" (
+                    return false
+                )
+                array reactions = message.reactions.assert(array)
+                
+                int index = findReactionIndex(reactions, emoji)
+                if index <= 0 (
+                    return false
+                )
+                
+                object reaction = reactions[index].assert(object)
+                array users = reaction.users.assert(array)
+                
+                if !users.contains(userId) (
+                    return false
+                )
+                
+                array newUsers = []
+                for j users.len (
+                    string uid = users[j].toStr()
+                    if uid != userId (
+                        newUsers.append(uid)
+                    )
+                )
+                
+                if newUsers.len == 0 (
+                    array newReactions = []
+                    for j reactions.len (
+                        if j != index (
+                            newReactions.append(reactions[j])
+                        )
+                    )
+                    reactions = newReactions
+                ) else (
+                    reaction.users = newUsers
+                    reactions[index] = reaction
+                )
+                
+                if reactions.len == 0 (
+                    message.delete("reactions")
+                ) else (
+                    message.reactions = reactions
+                )
+                messages[i] = message
+                ch.messages = messages
+                saveChannel(channelId, ch)
+                return true
+            )
+        )
+    )
+    return false
+)
+
+def formatReactionsForAPI(object message) object (
+    object result = {}
+    if typeof(message.reactions) != "array" (
+        return result
+    )
+    array reactions = message.reactions.assert(array)
+    for i reactions.len (
+        auto r = reactions[i]
+        if typeof(r) == "object" (
+            object reaction = r.assert(object)
+            string emoji = reaction.emoji.toStr()
+            array userIds = reaction.users.assert(array)
+            array usernames = []
+            for j userIds.len (
+                string userId = userIds[j].toStr()
+                string username = getUsernameById(userId)
+                if username != "" (
+                    usernames.append(username)
+                ) else (
+                    usernames.append(userId)
+                )
+            )
+            result[emoji] = usernames
+        )
+    )
+    return result
+)

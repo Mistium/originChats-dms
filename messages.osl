@@ -203,5 +203,9 @@ def formatMessageForAPI(object message) object (
     if typeof(message.reply_to) == "object" (
         result.reply_to = message.reply_to
     )
+    object reactions = formatReactionsForAPI(message)
+    if reactions.len > 0 (
+        result.reactions = reactions
+    )
     return result
 )

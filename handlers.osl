@@ -430,60 +430,12 @@ def handleGroupAddCommand(*Connection conn, array parts) (
     )
 )
 
-def handleProcessCommand(*Connection conn, string content, string channel) (
-    if channel == "cmds" (
-        return
-    )
-
-    array parts = content.split(" ")
-    int len = parts.len
-
-    if len < 2 (
-        return
-    )
-
-    string cmdRoot = parts[1].toStr()
-    string cmdType = ""
-    if len >= 3 (
-        cmdType = parts[2].toStr()
-    )
-
-    if cmdRoot != "dm" and cmdRoot != "group" (
-        return
-    )
-
-    if cmdRoot == "dm" (
-        if cmdType != "add" (
-            return
-        )
-        if len < 3 (
-            conn.Send({
-                cmd: "error",
-                val: "Usage: /dm add <username>"
-            })
-            return
-        )
-        handleDMAddCommand(conn, parts[3].toStr())
-    ) else if cmdRoot == "group" (
-        if cmdType == "create" (
-            handleGroupCreateCommand(conn, parts)
-        ) else if cmdType == "add" (
-            handleGroupAddCommand(conn, parts)
-        )
-    )
-)
-
 def handleMessageNew(*Connection conn, object msg) (
     string channel = msg.channel.toStr()
     string content = msg.content.toStr()
     string replyToId = ""
     if typeof(msg.reply_to) == "string" (
         replyToId = msg.reply_to.toStr()
-    )
-
-    if content.startsWith("/") (
-        handleProcessCommand(conn, content, channel)
-        return
     )
 
     string id = getUserId(conn)
@@ -768,6 +720,126 @@ def handleMessageDelete(*Connection conn, object msg) (
     })
 
     sendUpdatedChannelsToChannelMembers(channel)
+)
+
+def handleMessageReactAdd(*Connection conn, object msg) (
+    string channel = msg.channel.toStr()
+    string id = getUserId(conn)
+    string messageId = msg.id.toStr()
+    string emoji = msg.emoji.toStr()
+    
+    if messageId == "" (
+        conn.Send({
+            cmd: "error",
+            val: "Missing id parameter"
+        })
+        return
+    )
+    if emoji == "" (
+        conn.Send({
+            cmd: "error",
+            val: "Missing emoji parameter"
+        })
+        return
+    )
+    if !requireAuth(conn) (
+        return
+    )
+    if !checkRateLimit(conn) (
+        return
+    )
+    if !verifyChannelMember(conn, id, channel) (
+        return
+    )
+
+    object message = getMessage(channel, messageId)
+    if message == null (
+        conn.Send({
+            cmd: "error",
+            val: "Message not found"
+        })
+        return
+    )
+
+    bool success = addReaction(channel, messageId, emoji, id)
+    if !success (
+        conn.Send({
+            cmd: "error",
+            val: "Failed to add reaction (invalid emoji or message not found)"
+        })
+        return
+    )
+
+    string username = getUsernameById(id)
+    
+    sendMessageToAllUsersInChannel(conn, channel, {
+        cmd: "message_react_add",
+        id: messageId,
+        emoji: emoji,
+        channel: channel,
+        from: username,
+        global: true
+    })
+)
+
+def handleMessageReactRemove(*Connection conn, object msg) (
+    string channel = msg.channel.toStr()
+    string id = getUserId(conn)
+    string messageId = msg.id.toStr()
+    string emoji = msg.emoji.toStr()
+    
+    if messageId == "" (
+        conn.Send({
+            cmd: "error",
+            val: "Missing id parameter"
+        })
+        return
+    )
+    if emoji == "" (
+        conn.Send({
+            cmd: "error",
+            val: "Missing emoji parameter"
+        })
+        return
+    )
+    if !requireAuth(conn) (
+        return
+    )
+    if !checkRateLimit(conn) (
+        return
+    )
+    if !verifyChannelMember(conn, id, channel) (
+        return
+    )
+
+    object message = getMessage(channel, messageId)
+    if message == null (
+        conn.Send({
+            cmd: "error",
+            val: "Message not found"
+        })
+        return
+    )
+
+    bool success = removeReaction(channel, messageId, emoji, id)
+    if !success (
+        conn.Send({
+            cmd: "error",
+            val: "Failed to remove reaction (you may not have reacted with this emoji)"
+        })
+        return
+    )
+
+    string username = getUsernameById(id)
+    
+    sendMessageToAllUsersInChannel(conn, channel, {
+        cmd: "message_react_remove",
+        id: messageId,
+        emoji: emoji,
+        channel: channel,
+        from: username,
+        global: true
+    })
 )
 
 def getUsername(*Connection conn) string (
