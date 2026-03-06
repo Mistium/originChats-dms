@@ -179,10 +179,10 @@ def handleUsersOnline(*Connection conn, object msg) (
     array channels = user.channels.assert(array)
     array onlineIds = []
 
-    auto connections = server.GetConnections()
+    any connections = server.GetConnections()
     for i connections.len (
-        auto memberConn = connections[i].assert(*Connection)
-        auto connId = memberConn.Get("id")
+        "*Connection" memberConn = connections[i].assert(*Connection)
+        any connId = memberConn.Get("id")
         if connId != null and connId.toStr() != "" (
             onlineIds.append(connId.toStr())
         )
@@ -254,7 +254,7 @@ def handleMessagesGet(*Connection conn, object msg) (
 
     array messages = getChannelMessages(channel)
     
-    auto start = msg.start
+    any start = msg.start
     int limit = round(msg.limit.toNum())
     
     if typeof(start) == "string" (
@@ -475,7 +475,7 @@ def handleGroupAddCommand(*Connection conn, array parts) (
     string channelId = ""
     for i channels.len (
         string c = channels[i].toStr()
-        auto channel = getChannel(c)
+        any channel = getChannel(c)
         if channel.type.toStr() == "group" and channel.name.toStr() == channelName (
             channelId = c
         )
@@ -610,10 +610,10 @@ def sendMessageToAllUsersInChannel(*Connection conn, string channel, object mess
     object ch = getChannel(channel)
     if ch != null and typeof(ch.members) == "array" (
         array members = ch.members.assert(array)
-        auto connections = server.GetConnections()
+        any connections = server.GetConnections()
         for i connections.len (
-            auto memberConn = connections[i].assert(*Connection)
-            auto connId = memberConn.Get("id")
+            "*Connection" memberConn = connections[i].assert(*Connection)
+            any connId = memberConn.Get("id")
             if connId == null or connId.toStr() == "" (
                 continue
             )
@@ -641,9 +641,9 @@ def sendUpdatedChannelsToChannelMembers(string channel) (
 
     for i memberIds.len (
         string memberId = memberIds[i].toStr()
-        auto memberConn = userConnections[memberId]
+        any memberConn = userConnections[memberId]
         if memberConn != null and typeof(memberConn) == "*Connection" (
-            auto conn = memberConn.assert(*Connection)
+            "*Connection" conn = memberConn.assert(*Connection)
             object user = getUser(memberId)
             if user != null (
                 array formattedChannels = formatSortedChannelsForAPI(user)
@@ -916,7 +916,7 @@ def handleMessageReactRemove(*Connection conn, object msg) (
 )
 
 def getUsername(*Connection conn) string (
-    auto val = conn.Get("username")
+    any val = conn.Get("username")
     if val == null (
         return ""
     )
@@ -924,7 +924,7 @@ def getUsername(*Connection conn) string (
 )
 
 def getUserId(*Connection conn) string (
-    auto val = conn.Get("id")
+    any val = conn.Get("id")
     if val == null (
         return ""
     )
@@ -1014,10 +1014,10 @@ def broadcastUserConnect(string id, string username, array channels) (
             color: null
         }
     }
-    auto connections = server.GetConnections()
+    any connections = server.GetConnections()
     for i connections.len (
-        auto memberConn = connections[i].assert(*Connection)
-        auto connId = memberConn.Get("id")
+        "*Connection" memberConn = connections[i].assert(*Connection)
+        any connId = memberConn.Get("id")
         if connId == null or connId.toStr() == "" (
             continue
         )
@@ -1058,10 +1058,10 @@ def broadcastUserDisconnect(string id) (
     if typeof(user.channels) == "array" (
         channels = user.channels
     )
-    auto connections = server.GetConnections()
+    any connections = server.GetConnections()
     for i connections.len (
-        auto memberConn = connections[i].assert(*Connection)
-        auto connId = memberConn.Get("id")
+        "*Connection" memberConn = connections[i].assert(*Connection)
+        any connId = memberConn.Get("id")
         if connId == null or connId.toStr() == "" (
             continue
         )

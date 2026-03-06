@@ -38,7 +38,7 @@ def newConnection(*Connection conn) (
 )
 
 def handleMessage(*Connection conn, string message) (
-    auto rawMsg = message.JsonParse()
+    any rawMsg = message.JsonParse()
 
     if typeof(rawMsg) != "object" (
         return

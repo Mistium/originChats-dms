@@ -1,7 +1,7 @@
 import "osl/fs"
 
 def userExists(string id) bool (
-    auto path = "db/users/" ++ id ++ ".json"
+    any path = "db/users/" ++ id ++ ".json"
     return fs.Exists(path)
 )
 
@@ -36,7 +36,7 @@ def getUsernameById(string id) string (
 )
 
 def getUser(string id) object (
-    auto path = "db/users/" ++ id ++ ".json"
+    any path = "db/users/" ++ id ++ ".json"
     if !fs.Exists(path) (
         object newObject = {
             id: id,
@@ -47,7 +47,7 @@ def getUser(string id) object (
         return newObject
     )
 
-    auto content = fs.ReadFile(path).JsonParse()
+    any content = fs.ReadFile(path).JsonParse()
     if typeof(content) != "object" (
         return {
             id: id,
@@ -59,7 +59,7 @@ def getUser(string id) object (
 )
 
 def saveUser(string id, object user) (
-    auto path = "db/users/" ++ id ++ ".json"
+    any path = "db/users/" ++ id ++ ".json"
     fs.WriteFile(path, user.JsonStringify())
 )
 
@@ -101,12 +101,12 @@ def removeChannelFromUser(string id, string channelId) (
 )
 
 def getChannel(string channelId) object (
-    auto path = "db/channels/" ++ channelId ++ ".json"
+    any path = "db/channels/" ++ channelId ++ ".json"
     if !fs.Exists(path) (
         return null
     )
 
-    auto content = fs.ReadFile(path).JsonParse()
+    any content = fs.ReadFile(path).JsonParse()
     if typeof(content) != "object" (
         return null
     )
@@ -114,7 +114,7 @@ def getChannel(string channelId) object (
 )
 
 def saveChannel(string channelId, object channel) (
-    auto path = "db/channels/" ++ channelId ++ ".json"
+    any path = "db/channels/" ++ channelId ++ ".json"
     fs.WriteFile(path, channel.JsonStringify())
 )
 
@@ -122,7 +122,7 @@ def randomString(int length) string (
     string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     string result = ""
     for i length (
-        result = result ++ chars[rand.Intn(chars.len) + 1].toStr()
+        result = result ++ chars[random(1, chars.len)].toStr()
     )
     return result
 )
@@ -262,7 +262,7 @@ def sendChannelMessage(string channelId, string content, string id, string reply
     if replyToId != "" (
         object repliedMessage = null
         for i messages.len (
-            auto msg = messages[i]
+            any msg = messages[i]
             if typeof(msg) == "object" (
                 object m = msg.assert(object)
                 if m.id.toStr() == replyToId (
@@ -310,7 +310,7 @@ def editChannelMessage(string channelId, string messageId, string newContent, st
 
     array messages = ch.messages.assert(array)
     for i messages.len (
-        auto msg = messages[i]
+        any msg = messages[i]
         if typeof(msg) == "object" (
             object message = msg.assert(object)
             if message.id.toStr() == messageId (
@@ -344,7 +344,7 @@ def deleteChannelMessage(string channelId, string messageId, string id) bool (
     array newMessages = []
     bool deleted = false
     for i messages.len (
-        auto msg = messages[i]
+        any msg = messages[i]
         if typeof(msg) == "object" (
             object message = msg.assert(object)
             if !deleted and message.id.toStr() == messageId (
@@ -379,7 +379,7 @@ def getMessage(string channelId, string messageId) object (
 
     array messages = ch.messages.assert(array)
     for i messages.len (
-        auto msg = messages[i]
+        any msg = messages[i]
         if typeof(msg) == "object" (
             object message = msg.assert(object)
             if message.id.toStr() == messageId (
@@ -405,7 +405,7 @@ def isValidEmoji(string emoji) bool (
 
 def findReactionIndex(array reactions, string emoji) int (
     for i reactions.len (
-        auto r = reactions[i]
+        any r = reactions[i]
         if typeof(r) == "object" (
             object reaction = r.assert(object)
             if reaction.emoji.toStr() == emoji (
@@ -432,7 +432,7 @@ def addReaction(string channelId, string messageId, string emoji, string userId)
     
     array messages = ch.messages.assert(array)
     for i messages.len (
-        auto msg = messages[i]
+        any msg = messages[i]
         if typeof(msg) == "object" (
             object message = msg.assert(object)
             if message.id.toStr() == messageId (
@@ -485,7 +485,7 @@ def removeReaction(string channelId, string messageId, string emoji, string user
     
     array messages = ch.messages.assert(array)
     for i messages.len (
-        auto msg = messages[i]
+        any msg = messages[i]
         if typeof(msg) == "object" (
             object message = msg.assert(object)
             if message.id.toStr() == messageId (
@@ -549,7 +549,7 @@ def formatReactionsForAPI(object message) object (
     )
     array reactions = message.reactions.assert(array)
     for i reactions.len (
-        auto r = reactions[i]
+        any r = reactions[i]
         if typeof(r) == "object" (
             object reaction = r.assert(object)
             string emoji = reaction.emoji.toStr()

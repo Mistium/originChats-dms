@@ -98,7 +98,7 @@ def getLastMessageTimestamp(object channel) number (
         return 0
     )
 
-    auto lastMsg = messages[messages.len]
+    any lastMsg = messages[messages.len]
     if typeof(lastMsg) == "object" (
         object message = lastMsg.assert(object)
         return message.timestamp.toNum()
@@ -145,7 +145,7 @@ def formatSortedChannelsForAPI(object user) array (
         int highestIndex = -1
         int highestTimestamp = -1
         for i channelData.len (
-            auto data = channelData[i]
+            any data = channelData[i]
             if typeof(data) == "object" (
                 object channelDataItem = data.assert(object)
                 int ts = channelDataItem.timestamp
@@ -160,16 +160,16 @@ def formatSortedChannelsForAPI(object user) array (
             break
         )
         
-        auto bestData = channelData[highestIndex]
+        any bestData = channelData[highestIndex]
         if typeof(bestData) == "object" (
             object bestDataObj = bestData.assert(object)
-            formattedChannels.append(formatChannelForAPI(bestDataObj.channel.assert(object), user))
+            formattedChannels.append(formatChannelForAPI(bestDataObj.channel.assert(object), user, bestDataObj.timestamp.toNum()))
         )
         
         array newChannelData = []
         for i channelData.len (
             if i != highestIndex (
-                auto item = channelData[i]
+                any item = channelData[i]
                 if typeof(item) == "object" (
                     newChannelData.append(item)
                 )
