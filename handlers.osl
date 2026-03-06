@@ -243,16 +243,8 @@ def handleMessagesGet(*Connection conn, object msg) (
     )
 
     object user = getUser(id)
-    if typeof(user.channels) != "array" (
-        conn.Send({
-            cmd: "error",
-            val: "You are not a member of this channel"
-        })
-        return
-    )
-
     array channels = user.channels.assert(array)
-    if !channels.contains(channel) (
+    if typeof(user.channels) != "array" or !channels.contains(channel) (
         conn.Send({
             cmd: "error",
             val: "You are not a member of this channel"

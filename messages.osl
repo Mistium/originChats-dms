@@ -19,7 +19,7 @@ def successMsg(string msg) object (
     }
 )
 
-def formatChannelForAPI(object channel, object userChannels) object (
+def formatChannelForAPI(object channel, object userChannels, number last_message) object (
     string channelId = channel.id.toStr()
     string channelType = channel.type.toStr()
     string name = channel.name.toStr()
@@ -58,6 +58,7 @@ def formatChannelForAPI(object channel, object userChannels) object (
         name: channelId,
         display_name: name,
         description: description,
+        last_message: last_message,
         permissions: {
             view: [channelId],
             send: ["user"],
@@ -179,6 +180,7 @@ def formatSortedChannelsForAPI(object user) array (
 
     return formattedChannels
 )
+
 def formatMessageForAPI(object message) object (
     string userId = message.user.toStr()
     string username = getUsernameById(userId)
