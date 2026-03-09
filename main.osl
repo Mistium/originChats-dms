@@ -38,40 +38,68 @@ def newConnection(*Connection conn) (
 )
 
 def handleMessage(*Connection conn, string message) (
-    any rawMsg = message.JsonParse()
+  any rawMsg = message.JsonParse()
 
-    if typeof(rawMsg) != "object" (
-        return
-    )
-    object msg = rawMsg.assert(object)
+  if typeof(rawMsg) != "object" (
+    return
+  )
+  object msg = rawMsg.assert(object)
 
-    string cmd = msg.cmd.toStr()
-    switch cmd (
-        case "auth"
-            handleAuth(conn, msg)
-        case "channels_get"
-            handleChannelsGet(conn, msg)
-        case "users_list"
-            handleUsersList(conn, msg)
-        case "users_online"
-            handleUsersOnline(conn, msg)
-        case "messages_get"
-            handleMessagesGet(conn, msg)
-        case "message_new"
-            handleMessageNew(conn, msg)
-        case "message_edit"
-            handleMessageEdit(conn, msg)
-        case "message_delete"
-            handleMessageDelete(conn, msg)
-        case "message_react_add"
-            handleMessageReactAdd(conn, msg)
-        case "message_react_remove"
-            handleMessageReactRemove(conn, msg)
-        case "dm_create"
-            handleDMCreate(conn, msg)
-        case "typing"
-            handleTyping(conn, msg)
+  string listener = ""
+  if typeof(msg.listener) == "string" (
+    listener = msg.listener.toStr()
+  )
+
+  string cmd = msg.cmd.toStr()
+  object response = null
+
+  switch cmd (
+  case "auth"
+    response = handleAuth(conn, msg)
+  case "channels_get"
+    response = handleChannelsGet(conn, msg)
+  case "users_list"
+    response = handleUsersList(conn, msg)
+  case "users_online"
+    response = handleUsersOnline(conn, msg)
+  case "messages_get"
+    response = handleMessagesGet(conn, msg)
+  case "message_new"
+    response = handleMessageNew(conn, msg)
+  case "message_edit"
+    response = handleMessageEdit(conn, msg)
+  case "message_delete"
+    response = handleMessageDelete(conn, msg)
+  case "message_react_add"
+    response = handleMessageReactAdd(conn, msg)
+  case "message_react_remove"
+    response = handleMessageReactRemove(conn, msg)
+  case "dm_create"
+    response = handleDMCreate(conn, msg)
+  case "typing"
+    response = handleTyping(conn, msg)
+  )
+
+  if response == null (
+    return
+  )
+
+  if response.global.toBool() (
+    string channel = response.channel.toStr()
+    if channel != "" (
+      sendMessageToAllUsersInChannel(conn, channel, response)
     )
+    if listener != "" (
+      response.listener = listener
+      conn.Send(response)
+    )
+    return
+  )
+
+  if listener != "" (
+    response.listener = listener
+  )
+  conn.Send(response)
 )
 
 def closeConnection(*Connection conn) (
