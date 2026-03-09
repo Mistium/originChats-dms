@@ -84,21 +84,19 @@ def handleMessage(*Connection conn, string message) (
     return
   )
 
+  if listener != "" (
+      response.listener = listener
+    )
+
   if response.global.toBool() (
     string channel = response.channel.toStr()
     if channel != "" (
       sendMessageToAllUsersInChannel(conn, channel, response)
     )
-    if listener != "" (
-      response.listener = listener
-      conn.Send(response)
-    )
+    conn.Send(response)
     return
   )
-
-  if listener != "" (
-    response.listener = listener
-  )
+  
   conn.Send(response)
 )
 
