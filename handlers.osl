@@ -857,6 +857,393 @@ def verifyChannelMemberNoSend(string id, string channelId) bool (
   return true
 )
 
+def handleMessagePin(*Connection conn, object msg) object (
+  string channel = msg.channel.toStr()
+  string id = getUserId(conn)
+  string messageId = msg.id.toStr()
+  if messageId == "" (
+    return { cmd: "error", val: "Missing id parameter" }
+  )
+  if !isAuthenticated(conn) (
+    return authErrorMsg("Authentication required")
+  )
+  if !checkRateLimit(conn) (
+    return { cmd: "error", val: "Rate limit exceeded. Please slow down." }
+  )
+  if !verifyChannelMemberNoSend(id, channel) (
+    return { cmd: "error", val: "You are not a member of this channel" }
+  )
+
+  object message = getMessage(channel, messageId)
+  if message == null (
+    return { cmd: "error", val: "Message not found" }
+  )
+
+  bool success = pinChannelMessage(channel, messageId, true)
+  if !success (
+    return { cmd: "error", val: "Failed to pin message" }
+  )
+
+  return {
+    cmd: "message_pin",
+    id: messageId,
+    channel: channel,
+    pinned: true,
+    global: true
+  }
+)
+
+def handleMessageUnpin(*Connection conn, object msg) object (
+  string channel = msg.channel.toStr()
+  string id = getUserId(conn)
+  string messageId = msg.id.toStr()
+  if messageId == "" (
+    return { cmd: "error", val: "Missing id parameter" }
+  )
+  if !isAuthenticated(conn) (
+    return authErrorMsg("Authentication required")
+  )
+  if !checkRateLimit(conn) (
+    return { cmd: "error", val: "Rate limit exceeded. Please slow down." }
+  )
+  if !verifyChannelMemberNoSend(id, channel) (
+    return { cmd: "error", val: "You are not a member of this channel" }
+  )
+
+  object message = getMessage(channel, messageId)
+  if message == null (
+    return { cmd: "error", val: "Message not found" }
+  )
+
+  bool success = pinChannelMessage(channel, messageId, false)
+  if !success (
+    return { cmd: "error", val: "Failed to unpin message" }
+  )
+
+  return {
+    cmd: "message_unpin",
+    id: messageId,
+    channel: channel,
+    pinned: false,
+    global: true
+  }
+)
+
+def handleMessagesPinned(*Connection conn, object msg) object (
+  string channel = msg.channel.toStr()
+  string id = getUserId(conn)
+  if !isAuthenticated(conn) (
+    return authErrorMsg("Authentication required")
+  )
+  if !checkReadRequestLimit(conn) (
+    return { cmd: "error", val: "Rate limit exceeded. Please slow down." }
+  )
+  if !verifyChannelMemberNoSend(id, channel) (
+    return { cmd: "error", val: "You are not a member of this channel" }
+  )
+
+  array pinned = getPinnedMessages(channel)
+  array formatted = []
+  for i pinned.len (
+    formatted.append(formatMessageForAPI(pinned[i].assert(object)))
+  )
+
+  return {
+    cmd: "messages_pinned",
+    channel: channel,
+    messages: formatted
+  }
+)
+
+def handleVoiceJoin(*Connection conn, object msg) object (
+  string id = getUserId(conn)
+  if !isAuthenticated(conn) (
+    return authErrorMsg("Authentication required")
+  )
+  if !checkRateLimit(conn) (
+    return { cmd: "error", val: "Rate limit exceeded. Please slow down." }
+  )
+
+  string channel = msg.channel.toStr()
+  string peerId = msg.peer_id.toStr()
+  if channel == "" (
+    return { cmd: "error", val: "Channel is required" }
+  )
+  if peerId == "" (
+    return { cmd: "error", val: "Peer ID is required" }
+  )
+  if !verifyChannelMemberNoSend(id, channel) (
+    return { cmd: "error", val: "You are not a member of this channel" }
+  )
+
+  string username = getUsername(conn)
+
+  // If already in a voice channel, leave it first
+  any currentVc = conn.Get("voice_channel")
+  if currentVc != null and currentVc.toStr() != "" (
+    string oldVc = currentVc.toStr()
+    if typeof(voiceChannels[oldVc]) == "object" (
+      object oldVcData = voiceChannels[oldVc].assert(object)
+      oldVcData.delete(id)
+      if oldVcData.len == 0 (
+        voiceChannels.delete(oldVc)
+      ) else (
+        voiceChannels[oldVc] = oldVcData
+      )
+    )
+    object leaveMsg = {
+      cmd: "voice_user_left",
+      channel: oldVc,
+      username: username
+    }
+    sendMessageToVoiceChannelMembers(oldVc, leaveMsg)
+    conn.Set("voice_channel", "")
+  )
+
+  // Join the new voice channel
+  if typeof(voiceChannels[channel]) != "object" (
+    voiceChannels[channel] = {}
+  )
+  object vcData = voiceChannels[channel].assert(object)
+  vcData[id] = {
+    peer_id: peerId,
+    username: username,
+    muted: false
+  }
+  voiceChannels[channel] = vcData
+  conn.Set("voice_channel", channel)
+
+  // Broadcast join event to all channel members
+  sendMessageToVoiceChannelMembers(channel, {
+    cmd: "voice_user_joined",
+    channel: channel,
+    user: {
+      id: id,
+      username: username,
+      peer_id: peerId,
+      muted: false
+    }
+  })
+
+  // Return voice_join with current participants list (excluding self)
+  array participantsList = getVoiceParticipants(channel, id, true)
+
+  return {
+    cmd: "voice_join",
+    channel: channel,
+    participants: participantsList
+  }
+)
+
+def handleVoiceLeave(*Connection conn, object msg) object (
+  string id = getUserId(conn)
+  if !isAuthenticated(conn) (
+    return authErrorMsg("Authentication required")
+  )
+  if !checkRateLimit(conn) (
+    return { cmd: "error", val: "Rate limit exceeded. Please slow down." }
+  )
+
+  any currentVc = conn.Get("voice_channel")
+  if currentVc == null or currentVc.toStr() == "" (
+    return { cmd: "error", val: "You are not in a voice channel" }
+  )
+  string channel = currentVc.toStr()
+
+  string username = getUsername(conn)
+
+  if typeof(voiceChannels[channel]) == "object" (
+    object vcData = voiceChannels[channel].assert(object)
+    vcData.delete(id)
+    if vcData.len == 0 (
+      voiceChannels.delete(channel)
+    ) else (
+      voiceChannels[channel] = vcData
+    )
+  )
+  conn.Set("voice_channel", "")
+
+  object leaveMsg = {
+    cmd: "voice_user_left",
+    channel: channel,
+    username: username
+  }
+  sendMessageToVoiceChannelMembers(channel, leaveMsg)
+
+  return {
+    cmd: "voice_leave",
+    channel: channel
+  }
+)
+
+def handleVoiceMute(*Connection conn, object msg) object (
+  string id = getUserId(conn)
+  if !isAuthenticated(conn) (
+    return authErrorMsg("Authentication required")
+  )
+  if !checkRateLimit(conn) (
+    return { cmd: "error", val: "Rate limit exceeded. Please slow down." }
+  )
+
+  any currentVc = conn.Get("voice_channel")
+  if currentVc == null or currentVc.toStr() == "" (
+    return { cmd: "error", val: "You are not in a voice channel" }
+  )
+  string channel = currentVc.toStr()
+
+  if typeof(voiceChannels[channel]) != "object" (
+    return { cmd: "error", val: "Voice channel not found" }
+  )
+  object vcData = voiceChannels[channel].assert(object)
+  if typeof(vcData[id]) != "object" (
+    return { cmd: "error", val: "You are not in this voice channel" }
+  )
+  object userVcEntry = vcData[id].assert(object)
+  userVcEntry.muted = true
+  vcData[id] = userVcEntry
+  voiceChannels[channel] = vcData
+
+  string username = getUsername(conn)
+  string peerId = userVcEntry.peer_id.toStr()
+
+  object updateMsg = {
+    cmd: "voice_user_updated",
+    channel: channel,
+    user: {
+      id: id,
+      username: username,
+      peer_id: peerId,
+      muted: true
+    }
+  }
+  sendMessageToVoiceChannelMembers(channel, updateMsg)
+
+  return {
+    cmd: "voice_mute",
+    channel: channel,
+    muted: true
+  }
+)
+
+def handleVoiceUnmute(*Connection conn, object msg) object (
+  string id = getUserId(conn)
+  if !isAuthenticated(conn) (
+    return authErrorMsg("Authentication required")
+  )
+  if !checkRateLimit(conn) (
+    return { cmd: "error", val: "Rate limit exceeded. Please slow down." }
+  )
+
+  any currentVc = conn.Get("voice_channel")
+  if currentVc == null or currentVc.toStr() == "" (
+    return { cmd: "error", val: "You are not in a voice channel" }
+  )
+  string channel = currentVc.toStr()
+
+  if typeof(voiceChannels[channel]) != "object" (
+    return { cmd: "error", val: "Voice channel not found" }
+  )
+  object vcData = voiceChannels[channel].assert(object)
+  if typeof(vcData[id]) != "object" (
+    return { cmd: "error", val: "You are not in this voice channel" }
+  )
+  object userVcEntry = vcData[id].assert(object)
+  userVcEntry.muted = false
+  vcData[id] = userVcEntry
+  voiceChannels[channel] = vcData
+
+  string username = getUsername(conn)
+  string peerId = userVcEntry.peer_id.toStr()
+
+  object updateMsg = {
+    cmd: "voice_user_updated",
+    channel: channel,
+    user: {
+      id: id,
+      username: username,
+      peer_id: peerId,
+      muted: false
+    }
+  }
+  sendMessageToVoiceChannelMembers(channel, updateMsg)
+
+  return {
+    cmd: "voice_unmute",
+    channel: channel,
+    muted: false
+  }
+)
+
+def handleVoiceState(*Connection conn, object msg) object (
+  string id = getUserId(conn)
+  if !isAuthenticated(conn) (
+    return authErrorMsg("Authentication required")
+  )
+  if !checkReadRequestLimit(conn) (
+    return { cmd: "error", val: "Rate limit exceeded. Please slow down." }
+  )
+
+  string channel = msg.channel.toStr()
+  if channel == "" (
+    return { cmd: "error", val: "Channel is required" }
+  )
+  if !verifyChannelMemberNoSend(id, channel) (
+    return { cmd: "error", val: "You are not a member of this channel" }
+  )
+
+  any currentVc = conn.Get("voice_channel")
+  bool inChannel = currentVc != null and currentVc.toStr() == channel
+
+  array participants = getVoiceParticipants(channel, id, inChannel)
+
+  return {
+    cmd: "voice_state",
+    channel: channel,
+    participants: participants
+  }
+)
+
+// getVoiceParticipants returns a list of participants for a voice channel.
+// excludeId: user to exclude (self on join). includePeerId: whether to include peer_id.
+def getVoiceParticipants(string channel, string excludeId, bool includePeerId) array (
+  array result = []
+  if typeof(voiceChannels[channel]) != "object" (
+    return result
+  )
+  object vcData = voiceChannels[channel].assert(object)
+  // Iterate all connected clients and check if they are in this voice channel
+  any connections = server.GetConnections()
+  for i connections.len (
+    "*Connection" memberConn = connections[i].assert(*Connection)
+    any connId = memberConn.Get("id")
+    if connId == null or connId.toStr() == "" (
+      continue
+    )
+    string memberId = connId.toStr()
+    if memberId == excludeId (
+      continue
+    )
+    any memberVc = memberConn.Get("voice_channel")
+    if memberVc == null or memberVc.toStr() != channel (
+      continue
+    )
+    if typeof(vcData[memberId]) != "object" (
+      continue
+    )
+    object entry = vcData[memberId].assert(object)
+    object participant = {
+      id: memberId,
+      username: entry.username.toStr(),
+      muted: entry.muted.toBool()
+    }
+    if includePeerId (
+      participant.peer_id = entry.peer_id.toStr()
+    )
+    result.append(participant)
+  )
+  return result
+)
+
 def broadcastUserConnect(string id, string username, array channels) (
     object connectMsg = {
         cmd: "user_connect",

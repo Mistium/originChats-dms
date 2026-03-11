@@ -14,6 +14,9 @@ import "./db.osl"
 object users = {}
 object userConnections = {}
 
+// voiceChannels: channelId -> { userId -> { peer_id, username, muted } }
+object voiceChannels = {}
+
 def newConnection(*Connection conn) (
     log "New connection"
     conn.Send({
@@ -74,10 +77,26 @@ def handleMessage(*Connection conn, string message) (
     response = handleMessageReactAdd(conn, msg)
   case "message_react_remove"
     response = handleMessageReactRemove(conn, msg)
+  case "message_pin"
+    response = handleMessagePin(conn, msg)
+  case "message_unpin"
+    response = handleMessageUnpin(conn, msg)
+  case "messages_pinned"
+    response = handleMessagesPinned(conn, msg)
   case "dm_create"
     response = handleDMCreate(conn, msg)
   case "typing"
     response = handleTyping(conn, msg)
+  case "voice_join"
+    response = handleVoiceJoin(conn, msg)
+  case "voice_leave"
+    response = handleVoiceLeave(conn, msg)
+  case "voice_mute"
+    response = handleVoiceMute(conn, msg)
+  case "voice_unmute"
+    response = handleVoiceUnmute(conn, msg)
+  case "voice_state"
+    response = handleVoiceState(conn, msg)
   )
 
   if response == null (
@@ -107,6 +126,12 @@ def closeConnection(*Connection conn) (
     users.delete(conn)
     if id != "" (
         userConnections.delete(id)
+        // Clean up voice state if user was in a voice channel
+        any voiceChannel = conn.Get("voice_channel")
+        if voiceChannel != null and voiceChannel.toStr() != "" (
+            string vcName = voiceChannel.toStr()
+            cleanupVoiceOnDisconnect(conn, id, username, vcName)
+        )
         broadcastUserDisconnect(id)
     )
 )
@@ -118,6 +143,45 @@ def startPingTimer() (
             cmd: "ping"
         }.JsonStringify())
     )
+)
+
+def sendMessageToVoiceChannelMembers(string channelId, object message) (
+    object ch = getChannel(channelId)
+    if ch == null or typeof(ch.members) != "array" (
+        return
+    )
+    array members = ch.members.assert(array)
+    any connections = server.GetConnections()
+    for i connections.len (
+        "*Connection" memberConn = connections[i].assert(*Connection)
+        any connId = memberConn.Get("id")
+        if connId == null or connId.toStr() == "" (
+            continue
+        )
+        if !members.contains(connId.toStr()) (
+            continue
+        )
+        memberConn.Send(message)
+    )
+)
+
+def cleanupVoiceOnDisconnect(*Connection conn, string id, string username, string vcName) (
+    if typeof(voiceChannels[vcName]) != "object" (
+        return
+    )
+    object vcData = voiceChannels[vcName].assert(object)
+    vcData.delete(id)
+    if vcData.len == 0 (
+        voiceChannels.delete(vcName)
+    ) else (
+        voiceChannels[vcName] = vcData
+    )
+    object leaveMsg = {
+        cmd: "voice_user_left",
+        channel: vcName,
+        username: username
+    }
+    sendMessageToVoiceChannelMembers(vcName, leaveMsg)
 )
 
 def main() (

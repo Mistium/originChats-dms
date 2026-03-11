@@ -53,17 +53,46 @@ def formatChannelForAPI(object channel, object userChannels, number last_message
             break
     )
 
+    // Collect current voice participants for this channel
+    array voiceParticipants = []
+    if typeof(voiceChannels[channelId]) == "object" (
+        object vcData = voiceChannels[channelId].assert(object)
+        any connections = server.GetConnections()
+        for i connections.len (
+            "*Connection" memberConn = connections[i].assert(*Connection)
+            any connId = memberConn.Get("id")
+            if connId == null or connId.toStr() == "" (
+                continue
+            )
+            string memberId = connId.toStr()
+            any memberVc = memberConn.Get("voice_channel")
+            if memberVc == null or memberVc.toStr() != channelId (
+                continue
+            )
+            if typeof(vcData[memberId]) == "object" (
+                object entry = vcData[memberId].assert(object)
+                voiceParticipants.append({
+                    id: memberId,
+                    username: entry.username.toStr(),
+                    muted: entry.muted.toBool()
+                })
+            )
+        )
+    )
+
     object result = {
-        type: "text",
+        type: "chat",
         name: channelId,
         display_name: name,
         description: description,
         last_message: last_message,
+        voice_participants: voiceParticipants,
         permissions: {
             view: [channelId],
             send: ["user"],
             delete_own: ["user"],
-            edit_own: ["user"]
+            edit_own: ["user"],
+            pin: ["user"]
         }
     }
     if channelType == "dm" (
@@ -188,13 +217,18 @@ def formatMessageForAPI(object message) object (
         username = userId
     )
     
+    bool pinned = false
+    if typeof(message.pinned) == "boolean" (
+        pinned = message.pinned.toBool()
+    )
+
     object result = {
         id: message.id.toStr(),
         user: username,
         content: message.content.toStr(),
         timestamp: message.timestamp,
         type: "message",
-        pinned: false
+        pinned: pinned
     }
     if typeof(message.edited) != "null" (
         result.edited = message.edited

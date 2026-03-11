@@ -542,6 +542,64 @@ def removeReaction(string channelId, string messageId, string emoji, string user
     return false
 )
 
+def pinChannelMessage(string channelId, string messageId, bool pinned) bool (
+    object ch = getChannel(channelId)
+    if ch == null (
+        return false
+    )
+
+    if typeof(ch.messages) != "array" (
+        return false
+    )
+
+    array messages = ch.messages.assert(array)
+    for i messages.len (
+        any msg = messages[i]
+        if typeof(msg) == "object" (
+            object message = msg.assert(object)
+            if message.id.toStr() == messageId (
+                message.pinned = pinned
+                messages[i] = message
+                ch.messages = messages
+                saveChannel(channelId, ch)
+                return true
+            )
+        )
+    )
+    return false
+)
+
+def getPinnedMessages(string channelId) array (
+    object ch = getChannel(channelId)
+    if ch == null (
+        return []
+    )
+
+    if typeof(ch.messages) != "array" (
+        return []
+    )
+
+    array messages = ch.messages.assert(array)
+    array pinned = []
+    for i messages.len (
+        any msg = messages[i]
+        if typeof(msg) == "object" (
+            object message = msg.assert(object)
+            if message.pinned.toBool() == true (
+                pinned.append(message)
+            )
+        )
+    )
+    // Return in reverse order (most recent first)
+    array reversed = []
+    int j = pinned.len
+    while j >= 1 (
+        reversed.append(pinned[j])
+        j = j - 1
+    )
+    return reversed
+)
+
 def formatReactionsForAPI(object message) object (
     object result = {}
     if typeof(message.reactions) != "array" (
