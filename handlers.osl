@@ -24,7 +24,9 @@ def handleAuth(*Connection conn, object msg) object (
   users[conn] = id
   lock.Unlock("users")
 
+  lock.Lock("userConnections")
   userConnections[id] = conn
+  lock.Unlock("userConnections")
   conn.Set("id", id)
   conn.Set("username", username)
   conn.Set("ratelimit_timestamp", timestamp.toNum())
@@ -57,7 +59,7 @@ def handleAuth(*Connection conn, object msg) object (
   }
 )
 
-def handleChannelsGet(*Connection conn, object msg) object (
+def handleChannelsGet(*Connection conn) object (
   if !isAuthenticated(conn) (
     return { cmd: "error", val: "Authentication required" }
   )
@@ -486,8 +488,6 @@ def handleMessageNew(*Connection conn, object msg) object (
     return { cmd: "error", val: "Failed to send message" }
   )
 
-  sendUpdatedChannelsToChannelMembers(channel)
-
   return {
     cmd: "message_new",
     message: formatMessageForAPI(message),
@@ -558,22 +558,31 @@ def sendUpdatedChannelsToChannelMembers(string channel) (
         return
     )
 
+    array connections = []
+    lock.Lock("userConnections")
     for i memberIds.len (
         string memberId = memberIds[i].toStr()
         any memberConn = userConnections[memberId]
-        if memberConn != null and typeof(memberConn) == "*Connection" (
-            "*Connection" conn = memberConn.assert(*Connection)
-            object user = getUser(memberId)
-            if user != null (
-                array formattedChannels = formatSortedChannelsForAPI(user)
-                conn.Send({
-                    cmd: "channels_get",
-                    val: formattedChannels
-                })
-            )
+        if memberConn != null (
+            connections.append(memberConn)
+        )
+    )
+    lock.Unlock("userConnections")
+
+
+    for i connections.len (
+        "*Connection" conn = connections[i].assert(*Connection)
+        object user = getUser(conn.Get("id").toStr())
+        if user != null (
+            array formattedChannels = formatSortedChannelsForAPI(user)
+            conn.Send({
+                cmd: "channels_get",
+                val: formattedChannels
+            })
         )
     )
 )
+
 
 def handleTyping(*Connection conn, object msg) object (
   string channel = msg.channel.toStr()
@@ -631,8 +640,6 @@ def handleMessageEdit(*Connection conn, object msg) object (
 
   object updatedMessage = getMessage(channel, messageId)
 
-  sendUpdatedChannelsToChannelMembers(channel)
-
   return {
     cmd: "message_edit",
     id: updatedMessage.id,
@@ -673,8 +680,6 @@ def handleMessageDelete(*Connection conn, object msg) object (
   if !success (
     return { cmd: "error", val: "Failed to delete message" }
   )
-
-  sendUpdatedChannelsToChannelMembers(channel)
 
   return {
     cmd: "message_delete",

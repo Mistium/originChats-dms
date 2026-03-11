@@ -54,13 +54,13 @@ def handleMessage(*Connection conn, string message) (
   )
 
   string cmd = msg.cmd.toStr()
-  object response = null
+  any response = null
 
   switch cmd (
   case "auth"
     response = handleAuth(conn, msg)
   case "channels_get"
-    response = handleChannelsGet(conn, msg)
+    response = handleChannelsGet(conn)
   case "users_list"
     response = handleUsersList(conn, msg)
   case "users_online"
@@ -101,18 +101,20 @@ def handleMessage(*Connection conn, string message) (
     response = { cmd: "error", val: "Unknown command: " ++ cmd }
   )
 
-  if response == null (
+  if typeof(response) != "object" (
     return
   )
 
-  if listener != "" (
-      response.listener = listener
-    )
+  object responseObj = response.assert(object)
 
-  if response.global.toBool() (
-    string channel = response.channel.toStr()
+  if listener != "" (
+    response.listener = listener
+  )
+
+  if responseObj.global.toBool() (
+    string channel = responseObj.channel.toStr()
     if channel != "" (
-      sendMessageToAllUsersInChannel(conn, channel, response)
+      sendMessageToAllUsersInChannel(conn, channel, responseObj)
     )
     return
   )
@@ -126,7 +128,9 @@ def closeConnection(*Connection conn) (
     log "Connection closed for " ++ username
     users.delete(conn)
     if id != "" (
+        lock.Lock("userConnections")
         userConnections.delete(id)
+        lock.Unlock("userConnections")
         // Clean up voice state if user was in a voice channel
         any voiceChannel = conn.Get("voice_channel")
         if voiceChannel != null and voiceChannel.toStr() != "" (

@@ -159,7 +159,10 @@ def formatSortedChannelsForAPI(object user) array (
         string channelId = channels[i].toStr()
         object ch = getChannel(channelId)
         if ch != null (
-            int lastTimestamp = getLastMessageTimestamp(ch)
+            number lastTimestamp = getLastMessageTimestamp(ch)
+            if lastTimestamp == 0 (
+                lastTimestamp = ch.created_at.toNum()
+            )
             object data = {
                 channelId: channelId,
                 channel: ch,
