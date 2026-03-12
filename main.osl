@@ -3,8 +3,6 @@ import "osl/requests"
 import "osl/fs"
 import "osl/lock"
 
-import "math/rand"
-
 import "./messages.osl"
 import "./handlers.osl"
 import "./db.osl"
@@ -19,6 +17,8 @@ object voiceChannels = {}
 
 def newConnection(*Connection conn) (
     log "New connection"
+    string validatorKey = "originChats-" ++ randomString(32)
+    conn.Set("validator_key", validatorKey)
     conn.Send({
         "cmd": "handshake",
         "val": {
@@ -35,7 +35,29 @@ def newConnection(*Connection conn) (
                 post_content: 2000
             },
             version: "1.1.0",
-            validator_key: "originChats-dms"
+            validator_key: validatorKey,
+            capabilities: [
+                "auth",
+                "channels_get",
+                "dm_create",
+                "message_delete",
+                "message_edit",
+                "message_new",
+                "message_pin",
+                "message_react_add",
+                "message_react_remove",
+                "message_unpin",
+                "messages_get",
+                "messages_pinned",
+                "typing",
+                "users_list",
+                "users_online",
+                "voice_join",
+                "voice_leave",
+                "voice_mute",
+                "voice_state",
+                "voice_unmute"
+            ]
         }
     })
 )
